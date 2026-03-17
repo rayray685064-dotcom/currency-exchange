@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chelsea's Light Maze</title>
+  <style>
+    :root {
+      --bg: #f5fbff;
+      --panel: #ffffff;
+      --text: #24415a;
+      --soft: #6d8aa3;
+      --accent: #4fa9ff;
+      --accent-2: #ffd75e;
+      --wall: #4f6070;
+      --slot: #b7c9d9;
+      --success: #28a745;
+      --danger: #e56b6f;
+      --grid-line: #dce8f3;
+      --cell-size: 64px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Trebuchet MS", "Segoe UI", Arial, sans-serif;
+      background: linear-gradient(180deg, #edf7ff, #f7fcff 45%, #eef8ff);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .app {
+      max-width: 1100px;
+      margin: 0 auto;
+      background: var(--panel);
+      border-radius: 18px;
+      box-shadow: 0 8px 30px rgba(57, 97, 130, 0.18);
+      overflow: hidden;
+    }
+
+    header {
+      padding: 18px 22px;
+      border-bottom: 1px solid #e2edf6;
+      background: linear-gradient(90deg, #ffffff 0%, #f4faff 100%);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      letter-spacing: 0.3px;
+    }
+    .subtitle {
+      margin-top: 6px;
+      color: var(--soft);
+      font-size: 1rem;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 270px;
+      gap: 16px;
+      padding: 16px;
+    }
+
+    .board-card {
+      border: 1px solid #dfebf5;
+      border-radius: 14px;
+      padding: 14px;
+      background: #fbfdff;
+    }
+
+    .level-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .level-title { font-size: 1.05rem; font-weight: 700; }
+    .mission { color: var(--soft); margin-bottom: 8px; }
+    .intro {
+      font-size: 0.95rem;
+      background: #eaf5ff;
+      border-left: 4px solid var(--accent);
+      padding: 8px 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .game-wrap {
+      position: relative;
+      width: fit-content;
+      border-radius: 12px;
+      border: 2px solid #dceaf7;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .grid {
+      display: grid;
+      touch-action: manipulation;
+    }
+
+    .cell {
+      width: var(--cell-size);
+      height: var(--cell-size);
+      border-right: 1px solid var(--grid-line);
+      border-bottom: 1px solid var(--grid-line);
+      display: grid;
+      place-items: center;
+      font-size: 1.65rem;
+      user-select: none;
+      position: relative;
+      background: #fff;
+    }
+
+    .cell.wall {
+      background: repeating-linear-gradient(45deg, #607385 0 10px, #556676 10px 20px);
+      border-color: rgba(255,255,255,0.15);
+    }
+
+    .cell.slot {
+      cursor: pointer;
+      background: radial-gradient(circle at center, #f6fbff 35%, #f1f7fd 100%);
+    }
+
+    .cell.slot::after {
+      content: "";
+      position: absolute;
+      width: 68%;
+      height: 68%;
+      border: 2px dashed var(--slot);
+      border-radius: 10px;
+      pointer-events: none;
+    }
+
+    .mirror {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #1f5e8f;
+      text-shadow: 0 1px 0 #fff;
+      z-index: 1;
+    }
+
+    .source, .target {
+      font-size: 1.6rem;
+      z-index: 1;
+    }
+
+    .beam {
+      position: absolute;
+      left: 0;
+      top: 0;
+      pointer-events: none;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    button, select {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 13px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    button.secondary { background: #7b9bb5; }
+    button.success { background: var(--success); }
+    button.warning { background: #f4a340; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    select { background: #5f88ad; }
+
+    .message {
+      min-height: 26px;
+      margin-top: 10px;
+      font-weight: 700;
+    }
+
+    .message.success { color: var(--success); }
+    .message.fail { color: var(--danger); }
+
+    .sidebar {
+      border: 1px solid #dfebf5;
+      border-radius: 14px;
+      padding: 14px;
+      background: #fbfdff;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .tip-box {
+      background: #eef7ff;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.94rem;
+      line-height: 1.4;
+    }
+
+    .stars { font-size: 1.1rem; color: #f2b622; }
+
+    .final-panel {
+      margin-top: 10px;
+      border-radius: 12px;
+      border: 1px solid #cfe6ff;
+      background: #eef7ff;
+      padding: 12px;
+      display: none;
+    }
+
+    .final-panel.visible { display: block; }
+
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      :root { --cell-size: 54px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Chelsea's Light Maze</h1>
+      <div class="subtitle">Use mirrors to bounce the light to the exit!</div>
+    </header>
+
+    <div class="layout">
+      <section class="board-card">
+        <div class="level-row">
+          <div class="level-title" id="levelTitle">Level 1 / 5</div>
+          <div>
+            <select id="levelSelect" aria-label="Select level"></select>
+          </div>
+        </div>
+        <div class="mission">Bounce the light from the source to the exit.</div>
+        <div class="intro" id="introText"></div>
+
+        <div class="game-wrap" id="gameWrap">
+          <canvas id="beamCanvas" class="beam"></canvas>
+          <div id="grid" class="grid"></div>
+        </div>
+
+        <div class="controls">
+          <button id="shineBtn">Shine Light</button>
+          <button id="resetBtn" class="secondary">Reset Level</button>
+          <button id="hintBtn" class="warning">Hint</button>
+          <button id="nextBtn" class="success" disabled>Next Level</button>
+          <button id="restartBtn" class="secondary">Restart Game</button>
+        </div>
+
+        <div id="message" class="message"></div>
+        <div id="scienceLine" class="tip-box" style="display:none;"></div>
+
+        <div id="finalPanel" class="final-panel">
+          <h3 style="margin:0 0 8px;">You finished all 5 light mazes!</h3>
+          <strong>What did you learn?</strong>
+          <ul>
+            <li>Light travels in straight lines.</li>
+            <li>Mirrors reflect light.</li>
+            <li>Obstacles can block light.</li>
+            <li>By changing mirror positions, you can guide light to a target.</li>
+          </ul>
+        </div>
+      </section>
+
+      <aside class="sidebar">
+        <div><strong>Science Tips</strong></div>
+        <div class="tip-box">Tip: Light travels in straight lines.</div>
+        <div class="tip-box">Tip: Mirrors can change the direction of light.</div>
+        <div class="tip-box">Tip: Try, observe, and adjust!</div>
+        <div class="tip-box"><strong>Stars:</strong> <span id="stars" class="stars">☆☆☆</span></div>
+        <div class="tip-box" id="hintText">Hint will appear here.</div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    // ==============================
+    // Level data section
+    // Edit this array to add/change levels.
+    // ==============================
+    const levels = [
+      {
+        id: 1,
+        width: 8,
+        height: 6,
+        source: { x: 0, y: 4, dir: 'right' },
+        target: { x: 5, y: 1 },
+        walls: [{x: 3, y: 3}, {x: 3, y: 5}],
+        slots: [{x: 5, y: 4}, {x: 2, y: 2}],
+        intro: 'Level 1: Use one mirror to turn the light.',
+        hint: 'Try placing a mirror on the same row as the source.',
+        summary: 'A mirror can change the direction of light.',
+        bestMirrorCount: 1
+      },
+      {
+        id: 2,
+        width: 9,
+        height: 6,
+        source: { x: 0, y: 5, dir: 'right' },
+        target: { x: 8, y: 0 },
+        walls: [
+          {x: 4, y: 1}, {x: 4, y: 2}, {x: 4, y: 3}, {x: 4, y: 4}, {x: 4, y: 5}
+        ],
+        slots: [{x: 2, y: 5}, {x: 2, y: 0}, {x: 6, y: 4}],
+        intro: 'Level 2: Can you bounce the light around the wall?',
+        hint: 'One mirror can send light up, and another can send it right again.',
+        summary: 'Light still moves straight after every reflection.',
+        bestMirrorCount: 2
+      },
+      {
+        id: 3,
+        width: 10,
+        height: 6,
+        source: { x: 0, y: 1, dir: 'right' },
+        target: { x: 9, y: 4 },
+        walls: [
+          {x: 4, y: 1}, {x: 5, y: 1}, {x: 6, y: 1}, {x: 7, y: 1}, {x: 8, y: 1},
+          {x: 5, y: 0}, {x: 5, y: 2}, {x: 5, y: 3}
+        ],
+        slots: [{x: 2, y: 1}, {x: 2, y: 4}, {x: 7, y: 4}, {x: 8, y: 3}],
+        intro: 'Level 3: Think carefully about where the light will go next.',
+        hint: 'Try bending the light down first, then to the right.',
+        summary: 'More mirrors can help light move around corners.',
+        bestMirrorCount: 2
+      },
+      {
+        id: 4,
+        width: 10,
+        height: 7,
+        source: { x: 0, y: 6, dir: 'right' },
+        target: { x: 7, y: 0 },
+        walls: [
+          {x: 4, y: 6}, {x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6},
+          {x: 4, y: 3}, {x: 5, y: 3}, {x: 6, y: 3},
+          {x: 8, y: 1}, {x: 8, y: 2}
+        ],
+        slots: [{x: 2, y: 6}, {x: 2, y: 2}, {x: 7, y: 2}, {x: 5, y: 4}],
+        intro: 'Level 4: Watch out for tricky paths that look right but miss the target.',
+        hint: 'You may need three mirrors to guide the beam all the way up.',
+        summary: 'Obstacles can block light, but reflections can route around them.',
+        bestMirrorCount: 3
+      },
+      {
+        id: 5,
+        width: 10,
+        height: 7,
+        source: { x: 0, y: 6, dir: 'right' },
+        target: { x: 9, y: 0 },
+        walls: [
+          {x: 3, y: 6}, {x: 4, y: 6}, {x: 5, y: 6}, {x: 6, y: 6}, {x: 7, y: 6}, {x: 8, y: 6}, {x: 9, y: 6},
+          {x: 5, y: 3}, {x: 5, y: 4}, {x: 5, y: 5},
+          {x: 7, y: 2}, {x: 8, y: 2}, {x: 9, y: 2}
+        ],
+        slots: [{x: 1, y: 6}, {x: 1, y: 2}, {x: 5, y: 2}, {x: 5, y: 0}, {x: 7, y: 4}],
+        intro: 'Level 5: Final challenge! Can you solve this mirror maze?',
+        hint: 'Try creating a zig-zag path: up, right, up, right.',
+        summary: 'Great scientists test, observe, and improve their designs.',
+        bestMirrorCount: 4
+      }
+    ];
+
+    const gridEl = document.getElementById('grid');
+    const beamCanvas = document.getElementById('beamCanvas');
+    const gameWrap = document.getElementById('gameWrap');
+    const levelTitle = document.getElementById('levelTitle');
+    const introText = document.getElementById('introText');
+    const messageEl = document.getElementById('message');
+    const scienceLine = document.getElementById('scienceLine');
+    const hintText = document.getElementById('hintText');
+    const levelSelect = document.getElementById('levelSelect');
+    const starsEl = document.getElementById('stars');
+    const finalPanel = document.getElementById('finalPanel');
+
+    let currentLevelIndex = 0;
+    let unlockedLevel = 0;
+    let solved = false;
+    let attempts = 0;
+    let mirrors = {};
+
+    const directions = {
+      up: { dx: 0, dy: -1 },
+      down: { dx: 0, dy: 1 },
+      left: { dx: -1, dy: 0 },
+      right: { dx: 1, dy: 0 }
+    };
+
+    // Reflection logic for two mirror types.
+    const reflectionMap = {
+      '/': { up: 'right', right: 'up', down: 'left', left: 'down' },
+      '\\': { up: 'left', left: 'up', down: 'right', right: 'down' }
+    };
+
+    function keyOf(x, y) {
+      return `${x},${y}`;
+    }
+
+    function getLevel() {
+      return levels[currentLevelIndex];
+    }
+
+    function resetMirrors() {
+      mirrors = {};
+      const lvl = getLevel();
+      lvl.slots.forEach(({x, y}) => {
+        mirrors[keyOf(x, y)] = null;
+      });
+    }
+
+    function buildLevelSelect() {
+      levelSelect.innerHTML = '';
+      levels.forEach((level, idx) => {
+        const option = document.createElement('option');
+        option.value = String(idx);
+        option.textContent = `Level ${idx + 1}`;
+        option.disabled = idx > unlockedLevel;
+        if (idx === currentLevelIndex) option.selected = true;
+        levelSelect.appendChild(option);
+      });
+    }
+
+    function renderGrid() {
+      const lvl = getLevel();
+      solved = false;
+      messageEl.textContent = '';
+      messageEl.className = 'message';
+      scienceLine.style.display = 'none';
+      hintText.textContent = 'Hint will appear here.';
+      finalPanel.classList.remove('visible');
+      clearBeam();
+
+      levelTitle.textContent = `Level ${currentLevelIndex + 1} / ${levels.length}`;
+      introText.textContent = lvl.intro;
+      gridEl.style.gridTemplateColumns = `repeat(${lvl.width}, var(--cell-size))`;
+
+      const cellCount = lvl.width * lvl.height;
+      gridEl.innerHTML = '';
+
+      const wallSet = new Set(lvl.walls.map(w => keyOf(w.x, w.y)));
+      const slotSet = new Set(lvl.slots.map(s => keyOf(s.x, s.y)));
+
+      for (let i = 0; i < cellCount; i++) {
+        const x = i % lvl.width;
+        const y = Math.floor(i / lvl.width);
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+
+        const key = keyOf(x, y);
+        if (wallSet.has(key)) {
+          cell.classList.add('wall');
+        }
+
+        if (slotSet.has(key)) {
+          cell.classList.add('slot');
+          const current = mirrors[key];
+          if (current) {
+            const m = document.createElement('div');
+            m.className = 'mirror';
+            m.textContent = current;
+            cell.appendChild(m);
+          }
+          cell.addEventListener('click', () => {
+            cycleMirror(x, y);
+          });
+        }
+
+        if (x === lvl.source.x && y === lvl.source.y) {
+          const icon = document.createElement('div');
+          icon.className = 'source';
+          icon.textContent = '🔦';
+          cell.appendChild(icon);
+        }
+
+        if (x === lvl.target.x && y === lvl.target.y) {
+          const icon = document.createElement('div');
+          icon.className = 'target';
+          icon.textContent = '⭐';
+          cell.appendChild(icon);
+        }
+
+        gridEl.appendChild(cell);
+      }
+
+      const size = Number(getComputedStyle(document.documentElement).getPropertyValue('--cell-size').replace('px', ''));
+      beamCanvas.width = lvl.width * size;
+      beamCanvas.height = lvl.height * size;
+      gameWrap.style.width = `${beamCanvas.width}px`;
+      gameWrap.style.height = `${beamCanvas.height}px`;
+
+      updateStarsDisplay(false);
+      document.getElementById('nextBtn').disabled = true;
+      buildLevelSelect();
+    }
+
+    function cycleMirror(x, y) {
+      const k = keyOf(x, y);
+      const value = mirrors[k];
+      mirrors[k] = value === null ? '/' : value === '/' ? '\\' : null;
+      renderGrid();
+    }
+
+    function traceLight() {
+      const lvl = getLevel();
+      const wallSet = new Set(lvl.walls.map(w => keyOf(w.x, w.y)));
+      const targetKey = keyOf(lvl.target.x, lvl.target.y);
+
+      let dir = lvl.source.dir;
+      let pos = { x: lvl.source.x, y: lvl.source.y };
+
+      const points = [{ x: pos.x, y: pos.y }];
+      const visitedState = new Set();
+      let success = false;
+
+      for (let step = 0; step < 200; step++) {
+        const stateKey = `${pos.x},${pos.y},${dir}`;
+        if (visitedState.has(stateKey)) {
+          break; // loop protection
+        }
+        visitedState.add(stateKey);
+
+        const { dx, dy } = directions[dir];
+        const next = { x: pos.x + dx, y: pos.y + dy };
+
+        if (next.x < 0 || next.y < 0 || next.x >= lvl.width || next.y >= lvl.height) {
+          break;
+        }
+
+        const nextKey = keyOf(next.x, next.y);
+        if (wallSet.has(nextKey)) {
+          break;
+        }
+
+        points.push({ x: next.x, y: next.y });
+        pos = next;
+
+        if (nextKey === targetKey) {
+          success = true;
+          break;
+        }
+
+        const mirror = mirrors[nextKey];
+        if (mirror) {
+          dir = reflectionMap[mirror][dir];
+        }
+      }
+
+      return { points, success };
+    }
+
+    function drawBeam(points, success) {
+      clearBeam();
+      const ctx = beamCanvas.getContext('2d');
+      const size = beamCanvas.width / getLevel().width;
+      const toPixel = (n) => n * size + size / 2;
+
+      if (points.length < 2) return;
+
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      // Glow layer
+      ctx.beginPath();
+      ctx.moveTo(toPixel(points[0].x), toPixel(points[0].y));
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(toPixel(points[i].x), toPixel(points[i].y));
+      }
+      ctx.strokeStyle = success ? 'rgba(255, 215, 94, 0.45)' : 'rgba(255, 215, 94, 0.30)';
+      ctx.lineWidth = 15;
+      ctx.stroke();
+
+      // Core beam
+      ctx.beginPath();
+      ctx.moveTo(toPixel(points[0].x), toPixel(points[0].y));
+      for (let i = 1; i < points.length; i++) {
+        ctx.lineTo(toPixel(points[i].x), toPixel(points[i].y));
+      }
+      ctx.strokeStyle = '#ffd75e';
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    }
+
+    function clearBeam() {
+      const ctx = beamCanvas.getContext('2d');
+      ctx.clearRect(0, 0, beamCanvas.width, beamCanvas.height);
+    }
+
+    function countUsedMirrors() {
+      return Object.values(mirrors).filter(Boolean).length;
+    }
+
+    function updateStarsDisplay(isWin) {
+      if (!isWin) {
+        starsEl.textContent = '☆☆☆';
+        return;
+      }
+      const used = countUsedMirrors();
+      const best = getLevel().bestMirrorCount;
+      let stars = 1;
+      if (used <= best) stars = 3;
+      else if (used <= best + 1) stars = 2;
+      starsEl.textContent = '★'.repeat(stars) + '☆'.repeat(3 - stars);
+    }
+
+    function shineLight() {
+      attempts++;
+      const result = traceLight();
+      drawBeam(result.points, result.success);
+
+      if (result.success) {
+        solved = true;
+        unlockedLevel = Math.max(unlockedLevel, currentLevelIndex + 1);
+        messageEl.textContent = 'Great job, Chelsea! You solved the maze!';
+        messageEl.className = 'message success';
+        scienceLine.textContent = getLevel().summary;
+        scienceLine.style.display = 'block';
+        document.getElementById('nextBtn').disabled = currentLevelIndex >= levels.length - 1;
+        updateStarsDisplay(true);
+
+        if (currentLevelIndex === levels.length - 1) {
+          finalPanel.classList.add('visible');
+        }
+      } else {
+        messageEl.textContent = 'Almost there. Try another mirror direction.';
+        messageEl.className = 'message fail';
+        updateStarsDisplay(false);
+      }
+
+      buildLevelSelect();
+    }
+
+    function resetLevel() {
+      attempts = 0;
+      resetMirrors();
+      renderGrid();
+    }
+
+    function nextLevel() {
+      if (!solved) return;
+      if (currentLevelIndex < levels.length - 1) {
+        currentLevelIndex++;
+        attempts = 0;
+        resetMirrors();
+        renderGrid();
+      }
+    }
+
+    function restartGame() {
+      currentLevelIndex = 0;
+      unlockedLevel = 0;
+      attempts = 0;
+      resetMirrors();
+      renderGrid();
+    }
+
+    document.getElementById('shineBtn').addEventListener('click', shineLight);
+    document.getElementById('resetBtn').addEventListener('click', resetLevel);
+    document.getElementById('nextBtn').addEventListener('click', nextLevel);
+    document.getElementById('restartBtn').addEventListener('click', restartGame);
+    document.getElementById('hintBtn').addEventListener('click', () => {
+      hintText.textContent = `Hint: ${getLevel().hint}`;
+    });
+
+    levelSelect.addEventListener('change', (e) => {
+      const next = Number(e.target.value);
+      if (Number.isNaN(next) || next > unlockedLevel) return;
+      currentLevelIndex = next;
+      attempts = 0;
+      resetMirrors();
+      renderGrid();
+    });
+
+    window.addEventListener('resize', () => {
+      // Re-render so canvas and grid stay aligned after device rotation / resize.
+      renderGrid();
+    });
+
+    // Start game
+    resetMirrors();
+    renderGrid();
+  </script>
+</body>
+</html>
